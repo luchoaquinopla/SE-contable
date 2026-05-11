@@ -98,13 +98,20 @@ def ejecutar_sistema_experto(caso):
     reglas_difusas_activadas = _identificar_reglas_difusas(resultado_difuso["activaciones"])
     reglas_activadas.extend(reglas_difusas_activadas)
 
-    # Impuesto: N/A si hay exclusión del régimen
+    # Desglose de obligaciones mensuales: N/A si hay exclusión del régimen
     if hay_exclusion_dura:
-        impuesto = None
+        desglose = None
     else:
-        impuesto = CATEGORIAS[categoria_final][
-            "impuesto_servicios" if actividad == "servicios" else "impuesto_venta"
-        ]
+        cat_data = CATEGORIAS[categoria_final]
+        imp_integrado = cat_data["impuesto_servicios" if actividad == "servicios" else "impuesto_venta"]
+        sipa = cat_data["sipa"]
+        obra_social = cat_data["obra_social"]
+        desglose = {
+            "impuesto_integrado": imp_integrado,
+            "sipa":               sipa,
+            "obra_social":        obra_social,
+            "total":              imp_integrado + sipa + obra_social,
+        }
 
     return {
         "nombre":           caso["nombre"],
@@ -117,7 +124,8 @@ def ejecutar_sistema_experto(caso):
         "activaciones":     resultado_difuso["activaciones"],
         "reglas_activadas": reglas_activadas,
         "explicaciones":    explicaciones,
-        "impuesto_mensual": impuesto,
+        "desglose_mensual": desglose,
+        "impuesto_mensual": desglose["total"] if desglose else None,
         "exclusion":        hay_exclusion_dura
     }
 

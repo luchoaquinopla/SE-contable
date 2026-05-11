@@ -22,6 +22,8 @@ CATEGORIAS = {
         "alquiler_max":   2_390_229.80,
         "impuesto_servicios": 4_780.46,
         "impuesto_venta":     4_780.46,
+        "sipa":               15_616.17,
+        "obra_social":        21_990.11,
     },
     "B": {
         "ingreso_max":    15_058_447.71,
@@ -30,6 +32,8 @@ CATEGORIAS = {
         "alquiler_max":   2_390_229.80,
         "impuesto_servicios": 9_082.88,
         "impuesto_venta":     9_082.88,
+        "sipa":               17_177.79,
+        "obra_social":        21_990.11,
     },
     "C": {
         "ingreso_max":    21_113_696.52,
@@ -38,6 +42,8 @@ CATEGORIAS = {
         "alquiler_max":   3_266_647.39,
         "impuesto_servicios": 15_616.17,
         "impuesto_venta":     14_341.38,
+        "sipa":               18_895.57,
+        "obra_social":        21_990.11,
     },
     "D": {
         "ingreso_max":    26_212_853.42,
@@ -46,6 +52,8 @@ CATEGORIAS = {
         "alquiler_max":   3_266_647.39,
         "impuesto_servicios": 25_495.79,
         "impuesto_venta":     23_742.95,
+        "sipa":               20_785.13,
+        "obra_social":        26_133.18,
     },
     "E": {
         "ingreso_max":    30_833_964.37,
@@ -54,6 +62,8 @@ CATEGORIAS = {
         "alquiler_max":   4_143_064.98,
         "impuesto_servicios": 47_804.60,
         "impuesto_venta":     37_924.98,
+        "sipa":               22_863.64,
+        "obra_social":        31_869.73,
     },
     "F": {
         "ingreso_max":    38_642_048.36,
@@ -62,6 +72,8 @@ CATEGORIAS = {
         "alquiler_max":   4_143_064.98,
         "impuesto_servicios": 67_245.13,
         "impuesto_venta":     49_398.08,
+        "sipa":               25_150.00,
+        "obra_social":        36_650.19,
     },
     "G": {
         "ingreso_max":    46_211_109.37,
@@ -70,6 +82,8 @@ CATEGORIAS = {
         "alquiler_max":   4_939_808.23,
         "impuesto_servicios": 122_379.76,
         "impuesto_venta":     61_189.87,
+        "sipa":               35_210.00,
+        "obra_social":        39_518.47,
     },
     "H": {
         "ingreso_max":    70_113_407.33,
@@ -78,6 +92,8 @@ CATEGORIAS = {
         "alquiler_max":   7_170_689.39,
         "impuesto_servicios": 350_567.04,
         "impuesto_venta":     175_283.51,
+        "sipa":               49_294.00,
+        "obra_social":        47_485.89,
     },
     "I": {
         "ingreso_max":    78_479_211.62,
@@ -86,6 +102,8 @@ CATEGORIAS = {
         "alquiler_max":   7_170_689.39,
         "impuesto_servicios": 697_150.35,
         "impuesto_venta":     278_860.14,
+        "sipa":               69_011.60,
+        "obra_social":        58_640.31,
     },
     "J": {
         "ingreso_max":    89_872_640.30,
@@ -94,6 +112,8 @@ CATEGORIAS = {
         "alquiler_max":   7_170_689.39,
         "impuesto_servicios": 836_580.42,
         "impuesto_venta":     334_632.18,
+        "sipa":               96_616.24,
+        "obra_social":        65_810.99,
     },
     "K": {
         "ingreso_max":   108_357_084.05,
@@ -102,6 +122,8 @@ CATEGORIAS = {
         "alquiler_max":   7_170_689.39,
         "impuesto_servicios": 1_171_212.59,
         "impuesto_venta":     390_404.20,
+        "sipa":               135_262.74,
+        "obra_social":        75_212.57,
     },
 }
 

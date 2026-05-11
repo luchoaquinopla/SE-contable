@@ -28,8 +28,14 @@ def mostrar_resultado(resultado):
     if resultado["exclusion"] or resultado["categoria_final"] == "EXCLUIDO":
         print(f"  Impuesto mensual       : N/A (excluido del régimen)")
         print(f"\n  ⚠️  El contribuyente debe pasar al RÉGIMEN GENERAL (IVA + Ganancias).")
-    elif resultado["impuesto_mensual"] is not None:
-        print(f"  Impuesto mensual       : ${resultado['impuesto_mensual']:>12,.2f}")
+    elif resultado.get("desglose_mensual"):
+        d = resultado["desglose_mensual"]
+        print(f"\n  💰 OBLIGACIÓN MENSUAL (desglose)")
+        print(f"  Impuesto integrado     : ${d['impuesto_integrado']:>12,.2f}")
+        print(f"  Aportes SIPA           : ${d['sipa']:>12,.2f}")
+        print(f"  Obra social            : ${d['obra_social']:>12,.2f}")
+        print(f"  {'─' * 39}")
+        print(f"  TOTAL MENSUAL          : ${d['total']:>12,.2f}")
 
     # --- Alertas ---
     if resultado["alertas"]:
