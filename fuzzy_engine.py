@@ -19,10 +19,10 @@
 # =============================================================================
 
 import numpy as np
-from knowledge_base import (
+from knowledge_base import CATEGORIAS
+from fuzzy_membership import (
     presion_baja, presion_media, presion_alta,
-    riesgo_estable, riesgo_precaucion, riesgo_zona_riesgo, riesgo_critico,
-    CATEGORIAS
+    riesgo_estable, riesgo_precaucion, riesgo_zona_riesgo, riesgo_critico
 )
 
 
@@ -102,45 +102,62 @@ def fuzzificar(presion_ingresos, presion_fisica, presion_alquiler):
 
 def aplicar_reglas_difusas(grados):
     """
-    PASO 2 — Inferencia difusa (Bloque 5: reglas RD1-RD12).
-    
-    Aplica las reglas difusas usando el operador AND = mínimo.
-    Cada regla produce un grado de activación para uno de los
-    cuatro conjuntos de salida: estable, precaución, riesgo, crítico.
-    
-    El grado de activación de cada conjunto de salida es el MÁXIMO
-    de todos los grados producidos por las reglas que apuntan a ese conjunto
-    (operador OR = máximo entre reglas con igual consecuente).
-    
-    Parámetros:
-        grados : dict — resultado de fuzzificar()
-    
-    Retorna:
-        dict con el grado de activación de cada conjunto de salida
+    PASO 2 — Inferencia difusa (Bloque 5: reglas RD1-RD27).
+
+    Cubre las 27 combinaciones posibles (3 variables × 3 valores = 3³).
+    Las reglas RD1-RD12 son las del documento original; RD13-RD27 completan
+    las combinaciones no cubiertas cuya ausencia causaba activaciones = 0.
+
+    AND = mínimo entre condiciones de una regla.
+    OR  = máximo entre reglas con el mismo consecuente.
     """
     i = grados["ingresos"]
     f = grados["fisica"]
     a = grados["alquiler"]
 
-    # Cada regla: grado = min(grado_condicion_1, grado_condicion_2, grado_condicion_3)
     activaciones = {
-        "estable": min(i["baja"],  f["baja"],  a["baja"]),   # RD1
+        # ── ESTABLE ──────────────────────────────────────────────────────────
+        "estable": min(i["baja"], f["baja"], a["baja"]),            # RD1
+
+        # ── PRECAUCIÓN ───────────────────────────────────────────────────────
         "precaucion": max(
             min(i["media"], f["baja"],  a["baja"]),   # RD2
             min(i["baja"],  f["media"], a["baja"]),   # RD3
             min(i["baja"],  f["baja"],  a["media"]),  # RD4
+            # Nuevas (RD13-RD15): baja ingresos con presión moderada en otros
+            min(i["baja"],  f["baja"],  a["alta"]),   # RD13: B+B+A
+            min(i["baja"],  f["media"], a["media"]),  # RD14: B+M+M
+            min(i["baja"],  f["alta"],  a["baja"]),   # RD15: B+A+B
         ),
+
+        # ── RIESGO ───────────────────────────────────────────────────────────
         "riesgo": max(
             min(i["alta"],  f["baja"],  a["baja"]),   # RD5
             min(i["media"], f["media"], a["baja"]),   # RD6
             min(i["media"], f["baja"],  a["media"]),  # RD7
             min(i["media"], f["media"], a["media"]),  # RD8
+            # Nuevas (RD16-RD23): combinaciones con una o dos presiones elevadas
+            min(i["baja"],  f["media"], a["alta"]),   # RD16: B+M+A
+            min(i["baja"],  f["alta"],  a["media"]),  # RD17: B+A+M
+            min(i["baja"],  f["alta"],  a["alta"]),   # RD18: B+A+A
+            min(i["media"], f["baja"],  a["alta"]),   # RD19: M+B+A
+            min(i["media"], f["media"], a["alta"]),   # RD20: M+M+A
+            min(i["media"], f["alta"],  a["baja"]),   # RD21: M+A+B
+            min(i["media"], f["alta"],  a["media"]),  # RD22: M+A+M
+            min(i["alta"],  f["baja"],  a["media"]),  # RD23: A+B+M
         ),
+
+        # ── CRÍTICO ──────────────────────────────────────────────────────────
         "critico": max(
             min(i["alta"],  f["media"], a["baja"]),   # RD9
             min(i["alta"],  f["alta"],  a["media"]),  # RD10
             min(i["alta"],  f["alta"],  a["alta"]),   # RD11
             min(i["media"], f["alta"],  a["alta"]),   # RD12
+            # Nuevas (RD24-RD27): ingresos altos con presión adicional
+            min(i["alta"],  f["baja"],  a["alta"]),   # RD24: A+B+A
+            min(i["alta"],  f["media"], a["media"]),  # RD25: A+M+M
+            min(i["alta"],  f["media"], a["alta"]),   # RD26: A+M+A  ← corrige bug Case 4
+            min(i["alta"],  f["alta"],  a["baja"]),   # RD27: A+A+B
         ),
     }
 

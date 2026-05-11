@@ -1,24 +1,8 @@
-# =============================================================================
-# expert_system.py — Sistema Experto de Monotributo (Módulo Principal)
-# =============================================================================
-# Este es el módulo central que integra los tres módulos del sistema:
-#
-#   1. inference_engine.py → reglas determinísticas (Bloques 1-4)
-#   2. fuzzy_engine.py     → lógica difusa (Bloque 5)
-#   3. knowledge_base.py   → datos normativos y funciones de membresía
-#
-# Flujo del sistema:
-#   Datos del contribuyente
-#       → Módulo 1: determinar categoría por ingresos
-#       → Módulo 1: ajustar por parámetros físicos
-#       → Módulo 1: detectar alertas de exclusión
-#       → Módulo 2: evaluar riesgo fiscal global (lógica difusa)
-#       → Subsistema de explicación: mostrar reglas activadas y conclusión
-# =============================================================================
 
 from inference_engine import (
     determinar_categoria_por_ingresos,
     ajustar_por_parametros_fisicos,
+    ajustar_por_empleados,
     detectar_alertas
 )
 from fuzzy_engine import evaluar_riesgo_difuso
@@ -75,31 +59,57 @@ def ejecutar_sistema_experto(caso):
     categoria_final = resultado_fisico["categoria_final"]
 
     # =========================================================================
+    # MÓDULO 1 — PASO 2b: Ajustar categoría por piso de empleados
+    # =========================================================================
+    resultado_empleados = ajustar_por_empleados(categoria_final, empleados)
+    if resultado_empleados["regla_activada"]:
+        reglas_activadas.append(resultado_empleados["regla_activada"])
+        explicaciones.append(resultado_empleados["explicacion"])
+        categoria_final = resultado_empleados["categoria_final"]
+
+    # =========================================================================
     # MÓDULO 1 — PASO 3: Detectar alertas determinísticas de exclusión
     # =========================================================================
-    alertas = detectar_alertas(categoria_final, actividad, ingresos, alquiler, precio_unit)
+    alertas = detectar_alertas(categoria_final, actividad, ingresos, superficie, energia, alquiler, precio_unit)
     for alerta in alertas:
         reglas_activadas.append(alerta["regla"])
         explicaciones.append(alerta["explicacion"])
+
+    # Reglas que implican exclusión obligatoria del régimen (CF = 1.0)
+    REGLAS_EXCLUSION_DURA = {"R38", "R39", "R40", "R41", "R42", "R44", "R45", "R46", "R47"}
+    hay_exclusion_dura = any(a["regla"] in REGLAS_EXCLUSION_DURA for a in alertas)
+
+    # Cuando la exclusión es por causa no física (ej: alquiler), el mensaje
+    # "parámetros físicos coherentes" no aporta y puede confundir — se suprime.
+    if hay_exclusion_dura and len(explicaciones) > 1 and "coherentes con categoría" in explicaciones[1]:
+        explicaciones.pop(1)
+
+    # categoria_calculo se usa para el módulo difuso (presiones reales, aunque haya exclusión)
+    # categoria_display es lo que se muestra en el diagnóstico
+    categoria_calculo = categoria_final
+    categoria_display = "EXCLUIDO" if hay_exclusion_dura else categoria_final
 
     # =========================================================================
     # MÓDULO 2 — Evaluación de riesgo fiscal global (lógica difusa)
     # =========================================================================
     resultado_difuso = evaluar_riesgo_difuso(
-        categoria_final, ingresos, superficie, energia, alquiler
+        categoria_calculo, ingresos, superficie, energia, alquiler
     )
     reglas_difusas_activadas = _identificar_reglas_difusas(resultado_difuso["activaciones"])
     reglas_activadas.extend(reglas_difusas_activadas)
 
-    # Obtener impuesto integrado mensual
-    impuesto = CATEGORIAS[categoria_final][
-        "impuesto_servicios" if actividad == "servicios" else "impuesto_venta"
-    ]
+    # Impuesto: N/A si hay exclusión del régimen
+    if hay_exclusion_dura:
+        impuesto = None
+    else:
+        impuesto = CATEGORIAS[categoria_final][
+            "impuesto_servicios" if actividad == "servicios" else "impuesto_venta"
+        ]
 
     return {
         "nombre":           caso["nombre"],
         "categoria_base":   categoria_base,
-        "categoria_final":  categoria_final,
+        "categoria_final":  categoria_display,
         "alertas":          alertas,
         "riesgo_numerico":  resultado_difuso["valor_numerico"],
         "riesgo_etiqueta":  resultado_difuso["etiqueta"],
@@ -108,7 +118,7 @@ def ejecutar_sistema_experto(caso):
         "reglas_activadas": reglas_activadas,
         "explicaciones":    explicaciones,
         "impuesto_mensual": impuesto,
-        "exclusion":        False
+        "exclusion":        hay_exclusion_dura
     }
 
 
@@ -120,8 +130,8 @@ def _armar_resultado_exclusion(caso, reglas_activadas, explicaciones):
     return {
         "nombre":           caso["nombre"],
         "categoria_base":   None,
-        "categoria_final":  None,
-        "alertas":          [{"tipo_alerta": "EXCLUSIÓN RÉGIMEN GENERAL", "cf": 1.0}],
+        "categoria_final":  "EXCLUIDO",
+        "alertas":          [{"regla": "R43", "tipo_alerta": "EXCLUSIÓN RÉGIMEN GENERAL", "cf": 1.0}],
         "riesgo_numerico":  100.0,
         "riesgo_etiqueta":  "ZONA CRÍTICA — EXCLUSIÓN DEL RÉGIMEN",
         "presiones":        {"presion_ingresos": 1.0, "presion_fisica": 1.0, "presion_alquiler": 1.0},
@@ -140,61 +150,12 @@ def _identificar_reglas_difusas(activaciones):
     """
     mapeo = {
         "estable":    ["RD1"],
-        "precaucion": ["RD2", "RD3", "RD4"],
-        "riesgo":     ["RD5", "RD6", "RD7", "RD8"],
-        "critico":    ["RD9", "RD10", "RD11", "RD12"]
+        "precaucion": ["RD2", "RD3", "RD4", "RD13", "RD14", "RD15"],
+        "riesgo":     ["RD5", "RD6", "RD7", "RD8", "RD16", "RD17", "RD18", "RD19", "RD20", "RD21", "RD22", "RD23"],
+        "critico":    ["RD9", "RD10", "RD11", "RD12", "RD24", "RD25", "RD26", "RD27"]
     }
     activadas = []
     for conjunto, reglas in mapeo.items():
         if activaciones.get(conjunto, 0) > 0:
             activadas.extend(reglas)
     return activadas
-
-
-def mostrar_resultado(resultado):
-    """
-    Subsistema de explicación: imprime el diagnóstico completo en consola
-    de forma clara y estructurada, incluyendo todas las reglas activadas.
-    """
-    sep = "=" * 65
-
-    print(f"\n{sep}")
-    print(f"  SISTEMA EXPERTO DE MONOTRIBUTO — {resultado['nombre'].upper()}")
-    print(sep)
-
-    # --- Diagnóstico principal ---
-    if resultado["exclusion"]:
-        print(f"\n  ⚠️  EXCLUSIÓN DEL MONOTRIBUTO")
-        print(f"  El contribuyente debe pasar al RÉGIMEN GENERAL (IVA + Ganancias).")
-    else:
-        print(f"\n  📋 DIAGNÓSTICO")
-        print(f"  Categoría por ingresos : {resultado['categoria_base']}")
-        print(f"  Categoría final        : {resultado['categoria_final']}")
-        print(f"  Impuesto mensual       : ${resultado['impuesto_mensual']:>12,.2f}")
-
-    # --- Alertas ---
-    if resultado["alertas"]:
-        print(f"\n  ⚠️  ALERTAS DETECTADAS")
-        for alerta in resultado["alertas"]:
-            print(f"  → {alerta['tipo_alerta']} (CF={alerta.get('cf', 1.0)})")
-
-    # --- Riesgo fiscal (módulo difuso) ---
-    print(f"\n  🎯 RIESGO FISCAL GLOBAL (Módulo Difuso)")
-    print(f"  Valor numérico : {resultado['riesgo_numerico']:.1f} / 100")
-    print(f"  Etiqueta       : {resultado['riesgo_etiqueta']}")
-
-    if resultado["presiones"]:
-        p = resultado["presiones"]
-        print(f"\n  Presiones calculadas:")
-        print(f"    Presión de ingresos  : {p['presion_ingresos']*100:.1f}%")
-        print(f"    Presión física       : {p['presion_fisica']*100:.1f}%")
-        print(f"    Presión de alquiler  : {p['presion_alquiler']*100:.1f}%")
-
-    # --- Subsistema de explicación ---
-    print(f"\n  📖 ¿POR QUÉ LLEGÓ A ESTA CONCLUSIÓN? (Reglas activadas)")
-    print(f"  Reglas: {', '.join(resultado['reglas_activadas'])}")
-    print()
-    for i, exp in enumerate(resultado["explicaciones"], 1):
-        print(f"  {i}. {exp}")
-
-    print(f"\n{sep}\n")

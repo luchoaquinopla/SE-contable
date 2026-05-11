@@ -1,14 +1,13 @@
 # =============================================================================
-# knowledge_base.py — Base de Conocimiento del SE de Monotributo
+# knowledge_base.py — Datos Normativos del SE de Monotributo
 # =============================================================================
-# Este módulo contiene todos los datos normativos vigentes desde 01/02/2026
-# publicados por ARCA (ex AFIP) en www.afip.gob.ar/monotributo/categorias.asp
+# Responsabilidad única: almacenar los datos normativos vigentes.
+# Es el único archivo que debe actualizarse cuando ARCA modifica sus tablas.
+# No contiene lógica computacional — las funciones de membresía difusa
+# están en fuzzy_membership.py.
 #
-# Aquí se definen:
-#   - Los límites de cada categoría (ingresos, superficie, energía, alquiler)
-#   - El impuesto integrado mensual por categoría y tipo de actividad
-#   - El precio unitario máximo para venta de cosas muebles
-#   - Las funciones de membresía para el módulo difuso
+# Fuente: ARCA (ex AFIP) — www.afip.gob.ar/monotributo/categorias.asp
+# Vigente desde: 01/02/2026
 # =============================================================================
 
 # -----------------------------------------------------------------------------
@@ -115,96 +114,6 @@ PRECIO_UNITARIO_MAX = 613_492.31
 # Límite máximo de ingresos del régimen (superar esto implica exclusión)
 INGRESO_MAX_REGIMEN = 108_357_084.05
 
-
-# =============================================================================
-# FUNCIONES DE MEMBRESÍA PARA EL MÓDULO DIFUSO
-# =============================================================================
-# Las funciones de membresía traducen un valor numérico (ej: 0.85)
-# a un grado de pertenencia a un conjunto difuso (ej: "presión alta = 0.67").
-# Se usan funciones trapezoidales porque permiten zonas de pertenencia plena
-# (la parte plana) y zonas de transición gradual (los lados inclinados).
-# -----------------------------------------------------------------------------
-
-def membresia_trapezoidal(x, a, b, c, d):
-    """
-    Calcula el grado de pertenencia de x a un trapecio definido por [a, b, c, d].
-    
-    Forma del trapecio:
-        0 si x <= a o x >= d
-        sube de 0 a 1 entre a y b  (lado izquierdo)
-        1 si b <= x <= c           (parte plana = pertenencia total)
-        baja de 1 a 0 entre c y d  (lado derecho)
-    
-    Parámetros:
-        x   : valor a evaluar (entre 0 y 1, representa el porcentaje de presión)
-        a,b : inicio y fin de la rampa ascendente
-        c,d : inicio y fin de la rampa descendente
-    """
-    if x <= a or x >= d:
-        return 0.0
-    elif a < x < b:
-        return (x - a) / (b - a)
-    elif b <= x <= c:
-        return 1.0
-    elif c < x < d:
-        return (d - x) / (d - c)
-    return 0.0
-
-
-def membresia_triangular(x, a, b, c):
-    """
-    Calcula el grado de pertenencia de x a un triángulo definido por [a, b, c].
-    
-    Forma del triángulo:
-        0 si x <= a o x >= c
-        sube de 0 a 1 entre a y b
-        baja de 1 a 0 entre b y c
-    
-    Se usa para los conjuntos difusos de la variable de salida (riesgo fiscal).
-    """
-    if x <= a or x >= c:
-        return 0.0
-    elif a < x <= b:
-        return (x - a) / (b - a)
-    elif b < x < c:
-        return (c - x) / (c - b)
-    return 0.0
-
-
-# -----------------------------------------------------------------------------
-# Conjuntos difusos para las variables de ENTRADA (presión: valor entre 0 y 1)
-# Cada función devuelve el grado de pertenencia al conjunto "baja", "media" o "alta"
-# -----------------------------------------------------------------------------
-
-def presion_baja(p):
-    """Pertenencia plena si p <= 0.60, transición entre 0.60 y 0.75, nula si p >= 0.75"""
-    return membresia_trapezoidal(p, -0.01, 0.0, 0.60, 0.75)
-
-def presion_media(p):
-    """Transición ascendente entre 0.60 y 0.75, plena entre 0.75 y 0.85, descendente hasta 0.95"""
-    return membresia_trapezoidal(p, 0.60, 0.75, 0.85, 0.95)
-
-def presion_alta(p):
-    """Transición ascendente entre 0.85 y 0.95, pertenencia plena desde 0.95"""
-    return membresia_trapezoidal(p, 0.85, 0.95, 1.0, 1.01)
-
-
-# -----------------------------------------------------------------------------
-# Conjuntos difusos para la variable de SALIDA (riesgo fiscal: valor entre 0 y 100)
-# -----------------------------------------------------------------------------
-
-def riesgo_estable(x):
-    """Zona estable: centro en 12, entre 0 y 25"""
-    return membresia_triangular(x, 0, 12, 25)
-
-def riesgo_precaucion(x):
-    """Zona de precaución: centro en 37, entre 20 y 50"""
-    return membresia_triangular(x, 20, 37, 50)
-
-def riesgo_zona_riesgo(x):
-    """Zona de riesgo: centro en 62, entre 45 y 75"""
-    return membresia_triangular(x, 45, 62, 75)
-
-def riesgo_critico(x):
-    """Zona crítica: centro en 87, entre 70 y 100"""
-    return membresia_triangular(x, 70, 87, 100)
+# Alquiler máximo global del régimen — umbral de la regla catch-all R46
+# (coincide con el límite de las categorías H-K, que es el más alto del régimen)
+ALQUILER_MAX_GLOBAL = 7_170_689.39

@@ -10,12 +10,13 @@
 #   1. MODO INTERACTIVO: el usuario ingresa los datos del contribuyente
 #      por consola y recibe el diagnóstico en tiempo real.
 #
-#   2. MODO CASOS DE PRUEBA: ejecuta automáticamente los 7 casos de prueba
+#   2. MODO CASOS DE PRUEBA: ejecuta automáticamente los casos de prueba
 #      predefinidos en test_cases.py y muestra los resultados de todos.
 #
 # =============================================================================
 
-from expert_system import ejecutar_sistema_experto, mostrar_resultado
+from expert_system import ejecutar_sistema_experto
+from presenter import mostrar_resultado
 from test_cases import CASOS_DE_PRUEBA
 
 

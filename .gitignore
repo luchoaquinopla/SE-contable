@@ -1,0 +1,7 @@
+# Documentación interna
+Sistema experto contable.md
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyo

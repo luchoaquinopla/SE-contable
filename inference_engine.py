@@ -4,17 +4,18 @@
 # Este módulo implementa el encadenamiento hacia adelante (forward chaining)
 # para los Bloques 1 al 4 de la base de conocimiento.
 #
-# El razonamiento sigue tres etapas en orden:
+# El razonamiento sigue cuatro etapas en orden:
 #   1. Determinar la categoría base según ingresos y tipo de actividad
-#   2. Ajustar la categoría si los parámetros físicos lo requieren
-#   3. Detectar alertas de exclusión determinísticas
+#   2. Ajustar la categoría si los parámetros físicos lo requieren (R25-R36)
+#   3. Ajustar la categoría por piso de empleados (R48-R50)
+#   4. Detectar alertas de exclusión determinísticas (R37-R47)
 #
 # Cada función devuelve un diccionario con:
 #   - El resultado de la inferencia
 #   - Las reglas que se activaron (subsistema de explicación)
 # =============================================================================
 
-from knowledge_base import CATEGORIAS, ORDEN_CATEGORIAS, PRECIO_UNITARIO_MAX, INGRESO_MAX_REGIMEN
+from knowledge_base import CATEGORIAS, ORDEN_CATEGORIAS, PRECIO_UNITARIO_MAX, INGRESO_MAX_REGIMEN, ALQUILER_MAX_GLOBAL
 
 
 def determinar_categoria_por_ingresos(actividad, ingresos):
@@ -32,8 +33,6 @@ def determinar_categoria_por_ingresos(actividad, ingresos):
     Retorna:
         dict con 'categoria', 'regla_activada', 'cf', 'explicacion'
     """
-    reglas_activadas = []
-
     # Verificar primero si supera el límite máximo del régimen (R12 / R24)
     if ingresos > INGRESO_MAX_REGIMEN:
         regla = "R12" if actividad == "servicios" else "R24"
@@ -132,12 +131,45 @@ def ajustar_por_parametros_fisicos(categoria_base, superficie, energia):
                 categoria_actual = cat
             break
 
-    # Si no hubo cambios, informar que los parámetros físicos son coherentes
+    # Límites máximos absolutos del régimen (categorías G-K)
+    max_superficie_regimen = CATEGORIAS[ORDEN_CATEGORIAS[-1]]["superficie_max"]  # 200 m²
+    max_energia_regimen    = CATEGORIAS[ORDEN_CATEGORIAS[-1]]["energia_max"]     # 20.000 kWh
+
+    # Parámetros que superan el máximo absoluto del régimen (no hay categoría que los admita)
+    sup_invalida = superficie > max_superficie_regimen
+    ene_invalida = energia    > max_energia_regimen
+
     if not reglas_activadas:
-        explicaciones.append(
-            f"Superficie ({superficie} m²) y energía ({energia} kWh) "
-            f"son coherentes con categoría {categoria_base}. No se requiere ajuste."
-        )
+        msgs_invalidos = []
+        if sup_invalida:
+            msgs_invalidos.append(
+                f"Superficie ({superficie:.0f} m²) supera el límite máximo del régimen "
+                f"({max_superficie_regimen:.0f} m²) — parámetro inválido, se generará alerta de exclusión."
+            )
+        if ene_invalida:
+            msgs_invalidos.append(
+                f"Energía ({energia:.0f} kWh) supera el límite máximo del régimen "
+                f"({max_energia_regimen:,.0f} kWh) — parámetro inválido, se generará alerta de exclusión."
+            )
+        if msgs_invalidos:
+            explicaciones.extend(msgs_invalidos)
+        else:
+            explicaciones.append(
+                f"Superficie ({superficie} m²) y energía ({energia} kWh) "
+                f"son coherentes con categoría {categoria_base}. No se requiere ajuste."
+            )
+    else:
+        # Hubo recategorización, pero uno de los params puede aun exceder el régimen
+        if sup_invalida:
+            explicaciones.append(
+                f"Superficie ({superficie:.0f} m²) supera el límite máximo del régimen "
+                f"({max_superficie_regimen:.0f} m²) — se generará alerta de exclusión."
+            )
+        if ene_invalida:
+            explicaciones.append(
+                f"Energía ({energia:.0f} kWh) supera el límite máximo del régimen "
+                f"({max_energia_regimen:,.0f} kWh) — se generará alerta de exclusión."
+            )
 
     return {
         "categoria_final": categoria_actual,
@@ -146,20 +178,67 @@ def ajustar_por_parametros_fisicos(categoria_base, superficie, energia):
     }
 
 
-def detectar_alertas(categoria_final, actividad, ingresos, alquiler, precio_unitario):
+def ajustar_por_empleados(categoria_final, empleados):
+    """
+    BLOQUE 3 (extensión) — Piso de categoría por empleados en relación de dependencia.
+
+    Aplica las reglas R48-R50. La normativa establece una categoría mínima
+    obligatoria según la cantidad de trabajadores registrados:
+
+        R48: 1 empleado  → mínimo categoría B
+        R49: 2 empleados → mínimo categoría C
+        R50: 3+ empleados → mínimo categoría D
+
+    Parámetros:
+        categoria_final : str — categoría ya ajustada por parámetros físicos
+        empleados       : int — cantidad de empleados en relación de dependencia
+
+    Retorna:
+        dict con 'categoria_final', 'regla_activada', 'explicacion'
+        Si no hay ajuste, 'regla_activada' y 'explicacion' son None.
+    """
+    if empleados <= 0:
+        return {"categoria_final": categoria_final, "regla_activada": None, "explicacion": None}
+
+    if empleados >= 3:
+        cat_piso, regla = "D", "R50"
+    elif empleados >= 2:
+        cat_piso, regla = "C", "R49"
+    else:
+        cat_piso, regla = "B", "R48"
+
+    idx_actual = ORDEN_CATEGORIAS.index(categoria_final)
+    idx_piso   = ORDEN_CATEGORIAS.index(cat_piso)
+
+    if idx_actual < idx_piso:
+        return {
+            "categoria_final": cat_piso,
+            "regla_activada":  regla,
+            "explicacion": (
+                f"[{regla}] El contribuyente declara {empleados} empleado(s) en relación "
+                f"de dependencia. Categoría mínima obligatoria: {cat_piso}. "
+                f"→ Recategorizado de {categoria_final} a {cat_piso} por empleados."
+            )
+        }
+    return {"categoria_final": categoria_final, "regla_activada": None, "explicacion": None}
+
+
+def detectar_alertas(categoria_final, actividad, ingresos, superficie, energia, alquiler, precio_unitario):
     """
     BLOQUE 4 — Alertas determinísticas de exclusión.
-    
-    Aplica las reglas R37-R43. Detecta situaciones donde la normativa
+
+    Aplica las reglas R37-R47. Detecta situaciones donde la normativa
     establece que el contribuyente enfrenta riesgo de exclusión del régimen.
-    
+
     Parámetros:
-        categoria_final  : str — categoría ya ajustada por parámetros físicos
-        actividad        : str — "servicios" o "venta"
+        categoria_final  : str   — categoría ya ajustada por parámetros físicos
+        actividad        : str   — "servicios" o "venta"
         ingresos         : float — ingresos brutos anuales
+        superficie       : float — superficie afectada en m²
+        energia          : float — energía eléctrica consumida anual en kWh
         alquiler         : float — alquiler devengado anual en pesos
         precio_unitario  : float — precio unitario máximo de venta (solo para venta)
-    
+
     Retorna:
         list de dicts, cada uno con 'regla', 'cf', 'tipo_alerta', 'explicacion'
     """
@@ -202,16 +281,59 @@ def detectar_alertas(categoria_final, actividad, ingresos, alquiler, precio_unit
                 )
             })
 
-    # R43 — Exclusión por ingresos que superan el máximo del régimen
-    if ingresos > INGRESO_MAX_REGIMEN:
+    # R44 — Exclusión por superficie que supera el máximo absoluto del régimen (200 m²)
+    if superficie > 200:
         alertas.append({
-            "regla": "R43",
+            "regla": "R44",
             "cf": 1.0,
-            "tipo_alerta": "EXCLUSIÓN RÉGIMEN GENERAL",
+            "tipo_alerta": "SUPERFICIE EXCEDIDA — EXCLUSIÓN",
             "explicacion": (
-                f"[R43] Ingresos anuales (${ingresos:,.2f}) superan el límite máximo "
-                f"del Monotributo (${INGRESO_MAX_REGIMEN:,.2f}). "
-                f"Debe pasar al Régimen General de forma obligatoria. (CF=1.0)"
+                f"[R44] Superficie afectada ({superficie:.0f} m²) supera el límite "
+                f"máximo del régimen (200 m²). Exclusión obligatoria del Monotributo. (CF=1.0)"
+            )
+        })
+
+    # R45 — Exclusión por energía que supera el máximo absoluto del régimen (20.000 kWh)
+    if energia > 20_000:
+        alertas.append({
+            "regla": "R45",
+            "cf": 1.0,
+            "tipo_alerta": "ENERGÍA EXCEDIDA — EXCLUSIÓN",
+            "explicacion": (
+                f"[R45] Energía eléctrica consumida ({energia:.0f} kWh) supera el "
+                f"límite máximo del régimen (20.000 kWh). Exclusión obligatoria del Monotributo. (CF=1.0)"
+            )
+        })
+
+    # R46 — Alerta global de alquiler (regla catch-all sin condición de categoría)
+    # Solo se activa si las reglas R38-R42 no generaron ya una alerta de alquiler
+    if alquiler > ALQUILER_MAX_GLOBAL:
+        alerta_alquiler_previa = any(a["regla"] in ("R38", "R39", "R40", "R41", "R42") for a in alertas)
+        if not alerta_alquiler_previa:
+            alertas.append({
+                "regla": "R46",
+                "cf": 1.0,
+                "tipo_alerta": "ALQUILER EXCEDIDO",
+                "explicacion": (
+                    f"[R46] Alquiler devengado anual (${alquiler:,.2f}) supera el umbral "
+                    f"máximo global del régimen (${ALQUILER_MAX_GLOBAL:,.2f}). "
+                    f"Exclusión del Monotributo. (CF=1.0)"
+                )
+            })
+
+    # R47 — Exclusión dura por precio unitario (Bloque 4, CF=1.0).
+    # Supersede a R37 (alerta blanda CF=0.9 del Bloque 3): si la misma condición
+    # implica exclusión obligatoria, la alerta previa de R37 se elimina.
+    if actividad == "venta" and precio_unitario > PRECIO_UNITARIO_MAX:
+        alertas = [a for a in alertas if a["regla"] != "R37"]
+        alertas.append({
+            "regla": "R47",
+            "cf": 1.0,
+            "tipo_alerta": "EXCLUSIÓN POR PRECIO UNITARIO",
+            "explicacion": (
+                f"[R47] El precio unitario máximo declarado (${precio_unitario:,.2f}) "
+                f"supera el límite permitido (${PRECIO_UNITARIO_MAX:,.2f}). "
+                f"Exclusión obligatoria del régimen. (CF=1.0)"
             )
         })
 
