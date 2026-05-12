@@ -1,17 +1,3 @@
-# =============================================================================
-# fuzzy_membership.py — Funciones de Membresía del Módulo Difuso
-# =============================================================================
-# Define las funciones matemáticas que traducen valores numéricos a grados
-# de pertenencia a conjuntos difusos. Se separan de knowledge_base.py porque
-# son lógica computacional, no datos normativos: si AFIP actualiza sus tablas,
-# este archivo no cambia; si se ajusta el modelo difuso, knowledge_base.py
-# no cambia.
-#
-# Contiene:
-#   - Funciones de forma: trapezoidal y triangular
-#   - Conjuntos de entrada: presión baja / media / alta
-#   - Conjuntos de salida: riesgo estable / precaución / riesgo / crítico
-# =============================================================================
 
 
 def membresia_trapezoidal(x, a, b, c, d):
@@ -53,10 +39,10 @@ def membresia_triangular(x, a, b, c):
     return 0.0
 
 
-# -----------------------------------------------------------------------------
+
 # Conjuntos difusos de ENTRADA — presión (valor entre 0 y 1)
 # Cada función devuelve el grado de pertenencia al conjunto baja/media/alta.
-# -----------------------------------------------------------------------------
+
 
 def presion_baja(p):
     """Pertenencia plena si p <= 0.60, transición entre 0.60 y 0.75, nula si p >= 0.75"""
@@ -71,9 +57,9 @@ def presion_alta(p):
     return membresia_trapezoidal(p, 0.85, 0.95, 1.0, 1.01)
 
 
-# -----------------------------------------------------------------------------
+
 # Conjuntos difusos de SALIDA — riesgo fiscal (valor entre 0 y 100)
-# -----------------------------------------------------------------------------
+
 
 def riesgo_estable(x):
     """Zona estable: centro en 12, entre 0 y 25"""

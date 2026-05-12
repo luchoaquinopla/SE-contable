@@ -1,22 +1,3 @@
-# =============================================================================
-# fuzzy_engine.py — Motor de Lógica Difusa
-# =============================================================================
-# Este módulo implementa el Bloque 5 de la base de conocimiento:
-# la evaluación del riesgo fiscal global mediante lógica difusa.
-#
-# ¿Por qué lógica difusa aquí?
-#   Un contador no evalúa el riesgo de forma binaria ("seguro" o "en riesgo").
-#   Evalúa simultáneamente múltiples indicadores y emite un juicio gradual
-#   como "hay que estar atentos" o "situación comprometida".
-#   La lógica difusa captura exactamente ese razonamiento gradual.
-#
-# El módulo funciona en tres pasos:
-#   1. FUZZIFICACIÓN: convierte los porcentajes de presión en grados de
-#      pertenencia a los conjuntos difusos (baja, media, alta)
-#   2. INFERENCIA DIFUSA: aplica las reglas RD1-RD12 usando mínimo (AND)
-#   3. DEFUZZIFICACIÓN: convierte la salida difusa en un valor numérico
-#      usando el método del centroide (centro de gravedad)
-# =============================================================================
 
 import numpy as np
 from knowledge_base import CATEGORIAS
